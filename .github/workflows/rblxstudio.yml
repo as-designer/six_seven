@@ -20,7 +20,7 @@ jobs:
           echo "ROBLOX_VERSION=$version" >> $env:GITHUB_ENV
           
           # 3. Direct CDN link construction using the setup subdomain
-          $url = "http://roblox.com{version}-RobloxStudio.zip"
+          $url = "http://roblox.com/{version}-RobloxStudio.zip"
           Write-Output "Downloading from CDN: $url"
           Invoke-WebRequest -Uri $url -OutFile "source_package.zip" -MaximumRedirection 5
           
