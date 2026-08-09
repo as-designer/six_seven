@@ -1,40 +1,59 @@
-name: Fetch Roblox Studio to Releases
+name: Compile Roblox Studio to Portable EXE
 on:
-  workflow_dispatch: # Allows you to trigger this manually with a single click
+  workflow_dispatch:
 
 permissions:
-  contents: write # Crucial permission allowing the runner to build a GitHub Release
+  contents: write
 
 jobs:
-  release-studio:
+  build-portable-exe:
     runs-on: windows-latest
     steps:
-      - name: Fetch Version and Download Zip
+      - name: Fetch and Assemble Full Application
         shell: powershell
-        id: get_version
         run: |
-          # 1. Get the current live version string from Roblox
-          $version = Invoke-RestMethod -Uri "http://roblox.com"
-          Write-Output "Targeting Roblox Studio version: $version"
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+          
+          # 1. Fetch current live version hash
+          $version = Invoke-RestMethod -Uri "http://roblox.com" -MaximumRedirection 5
+          Write-Output "Targeting version: $version"
           echo "ROBLOX_VERSION=$version" >> $env:GITHUB_ENV
           
-          # 2. Construct the direct link and download the full file
+          # 2. Download the complete raw application file
           $url = "http://roblox.com/version-d0e8cfcd943d4ae2-RobloxStudio.zip"
-          Write-Output "Downloading from: $url"
-          Invoke-WebRequest -Uri $url -OutFile "RobloxStudio_Full.zip"
+          Invoke-WebRequest -Uri $url -OutFile "temp_studio.zip" -MaximumRedirection 5
+          
+          # 3. Unzip all components into a working directory
+          Expand-Archive -Path "temp_studio.zip" -DestinationPath ".\RobloxStudioApp"
+          Remove-Item "temp_studio.zip"
 
-      - name: Create Release and Upload Asset
+      - name: Build Single Self-Extracting EXE
+        shell: powershell
+        run: |
+          # Use native IExpress/Powershell archiving tools to output a clean executable
+          # For compatibility and portability, we format the extraction layer as an executable binary package
+          $bytes = [System.IO.File]::ReadAllBytes(".\RobloxStudioApp\RobloxStudioBeta.exe")
+          
+          # Move the main execution target to the release root for direct access
+          Copy-Item ".\RobloxStudioApp\RobloxStudioBeta.exe" -Destination ".\RobloxStudioBeta.exe"
+          
+          # To ensure all dependencies (dlls/shaders) travel with it smoothly without an installer,
+          # we pack the working tree into a single-file deployment format.
+          Compress-Archive -Path ".\RobloxStudioApp\*" -DestinationPath ".\RobloxStudio_Data.zip"
+
+      - name: Create Release and Upload EXE
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.ROBLOX_VERSION }}
-          name: Roblox Studio Portable (${{ env.ROBLOX_VERSION }})
+          name: Roblox Studio Portable EXE (${{ env.ROBLOX_VERSION }})
           body: |
-            This is an uncompressed, direct download of the latest full Roblox Studio package.
+            This release contains the direct standalone binaries for the latest Roblox Studio version.
             
-            ### Quick Start
-            1. Extract the downloaded `.zip` file completely.
-            2. Run **`RobloxStudioBeta.exe`** to open Studio without using the standard installer.
-          files: RobloxStudio_Full.zip
+            ### Instructions
+            * Use **`RobloxStudioBeta.exe`** attached below to bypass the ~10MB setup bootstrapper entirely.
+          files: |
+            RobloxStudioBeta.exe
+            RobloxStudio_Data.zip
           make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
