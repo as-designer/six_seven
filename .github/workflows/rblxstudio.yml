@@ -1,0 +1,40 @@
+name: Fetch Roblox Studio to Releases
+on:
+  workflow_dispatch: # Allows you to trigger this manually with a single click
+
+permissions:
+  contents: write # Crucial permission allowing the runner to build a GitHub Release
+
+jobs:
+  release-studio:
+    runs-on: windows-latest
+    steps:
+      - name: Fetch Version and Download Zip
+        shell: powershell
+        id: get_version
+        run: |
+          # 1. Get the current live version string from Roblox
+          $version = Invoke-RestMethod -Uri "http://roblox.com"
+          Write-Output "Targeting Roblox Studio version: $version"
+          echo "ROBLOX_VERSION=$version" >> $env:GITHUB_ENV
+          
+          # 2. Construct the direct link and download the full file
+          $url = "http://roblox.com/version-d0e8cfcd943d4ae2-RobloxStudio.zip"
+          Write-Output "Downloading from: $url"
+          Invoke-WebRequest -Uri $url -OutFile "RobloxStudio_Full.zip"
+
+      - name: Create Release and Upload Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.ROBLOX_VERSION }}
+          name: Roblox Studio Portable (${{ env.ROBLOX_VERSION }})
+          body: |
+            This is an uncompressed, direct download of the latest full Roblox Studio package.
+            
+            ### Quick Start
+            1. Extract the downloaded `.zip` file completely.
+            2. Run **`RobloxStudioBeta.exe`** to open Studio without using the standard installer.
+          files: RobloxStudio_Full.zip
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
