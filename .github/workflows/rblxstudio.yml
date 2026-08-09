@@ -12,23 +12,18 @@ jobs:
       - name: Fetch Version and Extract Executable
         shell: powershell
         run: |
-          # 1. Force modern security protocols for network calls
           [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
           
-          # 2. Corrected Target URL (Points to the active setup subdomain, NOT roblox.com)
-          $version = Invoke-RestMethod -Uri "http://roblox.com" -MaximumRedirection 5
+          # Correct Target URL pointing to setup subdomain
+          $version = Invoke-RestMethod -Uri "http://setup.roblox.com" -MaximumRedirection 5
           Write-Output "Targeting stable version: $version"
           echo "ROBLOX_VERSION=$version" >> $env:GITHUB_ENV
           
-          # 3. Pull down the full engine package from the CDN
           $url = "http://roblox.com/version-d0e8cfcd943d4ae2-RobloxStudio.zip"
           Write-Output "Downloading full source from: $url"
           Invoke-WebRequest -Uri $url -OutFile "source_package.zip" -MaximumRedirection 5
           
-          # 4. Unpack the zip file locally on the GitHub runner
           Expand-Archive -Path "source_package.zip" -DestinationPath ".\UnpackedStudio"
-          
-          # 5. Extract only the main executable file to the root directory
           Copy-Item ".\UnpackedStudio\RobloxStudioBeta.exe" -Destination ".\RobloxStudioBeta.exe"
 
       - name: Publish Executable directly to GitHub Release
@@ -37,9 +32,7 @@ jobs:
           tag_name: ${{ env.ROBLOX_VERSION }}
           name: Roblox Studio Standalone (${{ env.ROBLOX_VERSION }})
           body: |
-            This release contains the raw **RobloxStudioBeta.exe** binary extracted directly from the deployment servers.
-            
-            * This allows you to completely bypass the 10MB online bootstrapper installer.
+            This release contains the raw **RobloxStudioBeta.exe** binary.
           files: RobloxStudioBeta.exe
           make_latest: true
         env:
