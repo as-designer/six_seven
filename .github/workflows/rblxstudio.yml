@@ -9,20 +9,22 @@ jobs:
   release-standalone-exe:
     runs-on: windows-latest
     steps:
-      - name: Fetch Version and Extract Executable
+      - name: Extract Target Executable from Version Hash
         shell: powershell
         run: |
+          # 1. Enforce secure network channel protocols
           [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
           
-          # Correct Target URL pointing to setup subdomain
-          $version = Invoke-RestMethod -Uri "http://setup.roblox.com" -MaximumRedirection 5
-          Write-Output "Targeting stable version: $version"
+          # 2. Hardcoded to your specific version to bypass web scraping errors
+          $version = "version-d0e8cfcd943d4ae2"
           echo "ROBLOX_VERSION=$version" >> $env:GITHUB_ENV
           
-          $url = "http://roblox.com/version-d0e8cfcd943d4ae2-RobloxStudio.zip"
-          Write-Output "Downloading full source from: $url"
+          # 3. Direct CDN link construction using the setup subdomain
+          $url = "http://roblox.com{version}-RobloxStudio.zip"
+          Write-Output "Downloading from CDN: $url"
           Invoke-WebRequest -Uri $url -OutFile "source_package.zip" -MaximumRedirection 5
           
+          # 4. Extract package tree and isolate the standalone binary
           Expand-Archive -Path "source_package.zip" -DestinationPath ".\UnpackedStudio"
           Copy-Item ".\UnpackedStudio\RobloxStudioBeta.exe" -Destination ".\RobloxStudioBeta.exe"
 
@@ -32,7 +34,7 @@ jobs:
           tag_name: ${{ env.ROBLOX_VERSION }}
           name: Roblox Studio Standalone (${{ env.ROBLOX_VERSION }})
           body: |
-            This release contains the raw **RobloxStudioBeta.exe** binary.
+            This release contains the raw **RobloxStudioBeta.exe** binary extracted directly from version hash: d0e8cfcd943d4ae2.
           files: RobloxStudioBeta.exe
           make_latest: true
         env:
