@@ -1,0 +1,55 @@
+name: Compress and Release Android Studio
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install ZPAQ
+        run: choco install zpaq -y
+
+      - name: Fetch Latest Android Studio Windows URL
+        id: fetch-url
+        shell: powershell
+        run: |
+          $redirectUrl = "https://developer.android.com/studio/index.html"
+          $web = Invoke-WebRequest -Uri $redirectUrl -UseBasicParsing
+          $link = $web.Links | Where-Href -like "*redirect_to_latest=true&platform=windows_installer*" | Select-Object -First 1 -ExpandProperty href
+          
+          if (-not $link) {
+            # Fallback direct download link pattern if scraper misses
+            $link = "https://developer.android.com/studio/downloads"
+            Write-Host "Fetching directly from studio download list..."
+            $web2 = Invoke-WebRequest -Uri $link -UseBasicParsing
+            $link = ($web2.Links | Where-Href -like "*android-studio-*-windows.exe*").href | Select-Object -First 1
+          }
+          
+          Write-Host "Found URL: $link"
+          echo "DOWNLOAD_URL=$link" >> $env:GITHUB_ENV
+
+      - name: Download Android Studio
+        shell: powershell
+        run: |
+          Invoke-WebRequest -Uri "$env:DOWNLOAD_URL" -OutFile "android-studio.exe"
+
+      - name: Compress with ZPAQ (Method 5 - Maximum)
+        shell: cmd
+        run: |
+          zpaq add android-studio.zpaq android-studio.exe -m5
+
+      - name: Create Release and Upload Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name != 'main' && github.ref_name || 'latest' }}
+          name: "Android Studio ZPAQ Compressed"
+          files: android-studio.zpaq
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
