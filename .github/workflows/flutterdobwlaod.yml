@@ -1,0 +1,73 @@
+name: Package Lightweight Flutter SDK (Windows + Android)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install zpaq via Chocolatey
+        run: choco install zpaq -y
+
+      - name: Fetch Latest Stable Flutter Release Info
+        id: flutter_info
+        shell: powershell
+        run: |
+          $json = Invoke-RestMethod -Uri "https://storage.googleapis.com/flutter_infra_release/releases/releases_windows.json"
+          $latestHash = $json.current_release.stable
+          $latestRelease = $json.releases | Where-Object { $_.hash -eq $latestHash }
+          $archiveName = $latestRelease.archive
+          $downloadUrl = "https://storage.googleapis.com/flutter_infra_release/releases/$archiveName"
+
+          echo "download_url=$downloadUrl" >> $env:GITHUB_OUTPUT
+          echo "version=$($latestRelease.version)" >> $env:GITHUB_OUTPUT
+
+      - name: Download & Extract Base Flutter SDK
+        shell: powershell
+        run: |
+          Invoke-WebRequest -Uri "${{ steps.flutter_info.outputs.download_url }}" -OutFile "flutter_sdk.zip"
+          Expand-Archive -Path "flutter_sdk.zip" -DestinationPath "sdk_temp"
+          Remove-Item "flutter_sdk.zip" -Force
+
+      - name: Precache ONLY Windows and Android Artifacts
+        shell: powershell
+        run: |
+          # Populates cache strictly for Windows desktop and Android development
+          .\sdk_temp\flutter\bin\flutter.bat precache --windows --android
+
+      - name: Clean Unnecessary OS Artifacts & Downloads
+        shell: powershell
+        run: |
+          $artifactsPath = ".\sdk_temp\flutter\bin\cache\artifacts"
+          
+          # Remove Apple and Linux engine artifacts if any exist
+          Remove-Item -Recurse -Force "$artifactsPath\engine\ios*" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "$artifactsPath\engine\darwin*" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "$artifactsPath\engine\mac*" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "$artifactsPath\engine\linux*" -ErrorAction SilentlyContinue
+          
+          # Clear raw download zip archives to save disk space
+          Remove-Item -Recurse -Force ".\sdk_temp\flutter\bin\cache\downloads\*" -ErrorAction SilentlyContinue
+
+      - name: Compress Custom SDK with ZPAQ (-m5)
+        run: |
+          zpaq add flutter-win-android-${{ steps.flutter_info.outputs.version }}.zpaq .\sdk_temp\flutter\* -m5
+
+      - name: Upload Custom SDK to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: flutter-win-android-${{ steps.flutter_info.outputs.version }}.zpaq
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
