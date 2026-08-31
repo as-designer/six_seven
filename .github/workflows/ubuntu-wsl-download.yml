@@ -1,0 +1,38 @@
+name: Fetch and Release Ubuntu WSL Bundle (7z)
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch: # Allows manual trigger from GitHub UI
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Download Official Microsoft WSL Ubuntu Bundle
+      run: |
+        curl.exe -LR -o Ubuntu2404.AppxBundle https://wslstorestorage.blob.core.windows.net/wslblob/Ubuntu2404-240425.AppxBundle
+
+
+    - name: Compress Bundle using 7z
+      run: |
+        # Use 7z to create a high-compression zip file
+        7z a -mx=9 Ubuntu2404-WSL.zip .\Ubuntu2404.AppxBundle
+
+    - name: Create GitHub Release and Upload Asset
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: v24.04-lts
+        name: Ubuntu 24.04 LTS for WSL (7z Compressed)
+        draft: false
+        prerelease: false
+        files: |
+          Ubuntu2404-WSL.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
