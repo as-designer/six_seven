@@ -18,7 +18,6 @@ jobs:
         run: |
           # Install the underlying WSL platform without loading a distro yet
           wsl --install --no-distribution
-          wsl --update
 
       - name: Download and Install Ubuntu
         shell: powershell
