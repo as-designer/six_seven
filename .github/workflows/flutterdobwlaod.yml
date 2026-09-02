@@ -14,9 +14,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install zpaq via Chocolatey
-        run: choco install zpaq -y
-
       - name: Fetch Latest Stable Flutter Release Info
         id: flutter_info
         shell: powershell
@@ -59,7 +56,7 @@ jobs:
 
       - name: Compress Custom SDK with ZPAQ (-m5)
         run: |
-          zpaq add flutter-win-android-${{ steps.flutter_info.outputs.version }}.zpaq .\sdk_temp\flutter\* -m5
+          7z a -mx=9 flutter-win-android-${{ steps.flutter_info.outputs.version }}.7z .\sdk_temp\flutter\*
 
       - name: Upload Custom SDK to GitHub Release
         uses: softprops/action-gh-release@v2
