@@ -19,13 +19,7 @@ jobs:
       - name: Clone Flutter SDK
         run: |
           git clone --depth 1 --branch ${{ github.event.inputs.flutter_version }} https://github.com/flutter/flutter.git
-          
-      # 2. Force download ALL Android, Web, and Windows development binaries on GitHub's network
-      - name: Run Precache (Download Core Binaries)
-        run: |
-          cd flutter
-          ./bin/flutter precache --all
-          
+
       # 3. Clean up internal lockfiles or temporary setup bits to avoid corrupt paths
       - name: Prep Folder
         run: |
