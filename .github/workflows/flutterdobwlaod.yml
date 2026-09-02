@@ -1,9 +1,6 @@
 name: Package Lightweight Flutter SDK (Windows + Android)
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
 
 permissions:
