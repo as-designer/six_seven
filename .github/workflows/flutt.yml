@@ -1,43 +1,44 @@
-name: Compress Flutter SDK for Local Download
+name: Compress and Release Flutter Windows SDK
 
 on:
-  workflow_dispatch: # Allows you to manually trigger this and type the version you want
-    inputs:
-      flutter_version:
-        description: 'Target Flutter Version (e.g., 3.44.1)'
-        required: true
-        default: '3.44.1'
+  workflow_dispatch:
 
 permissions:
-  contents: write # Required to create the release and upload the file
+  contents: write
 
 jobs:
-  build-compressed-sdk:
-    runs-on: ubuntu-latest
+  build-release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
     steps:
-      # 1. Clone only the requested version without downloading centuries of git history
-      - name: Clone Flutter SDK
-        run: |
-          git clone --depth 1 --branch ${{ github.event.inputs.flutter_version }} https://github.com/flutter/flutter.git
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      # 3. Clean up internal lockfiles or temporary setup bits to avoid corrupt paths
-      - name: Prep Folder
+      - name: Download Flutter Windows SDK
         run: |
-          rm -rf flutter/.github
-          rm -f flutter/bin/cache/shasum
+          $url = "https://storage.googleapis.com/flutter_infra_release/releases/stable/windows/flutter_windows_3.47.8-stable.zip"
+          Write-Host "Downloading Flutter SDK..."
+          Invoke-WebRequest -Uri $url -OutFile "flutter-windows.zip"
+          Write-Host "Extracting archive..."
+          Expand-Archive -Path "flutter-windows.zip" -DestinationPath "."
+        shell: pwsh
 
-      # 4. Pack into an Ultra-compressed 7z archive using LZMA2
-      - name: Compress with 7z Ultra
+      - name: Compress with 7-Zip (Ultra Mode)
         run: |
-          sudo apt-get update && sudo apt-get install -y p7zip-full
-          7z a -mx=9 -m0=lzma2 flutter_sdk_${{ github.event.inputs.flutter_version }}.7z flutter/
+          Write-Host "Compressing flutter folder using 7z ultra..."
+          7z a -t7z -mx=9 flutter-windows-sdk.7z .\flutter\
+          Get-Item flutter-windows-sdk.7z | Select-Object Name, Length
+        shell: pwsh
 
-      # 5. Push the compressed file to a GitHub Release so you can download it via browser
-      - name: Create GitHub Release
+      - name: Upload to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ github.event.inputs.flutter_version }}-lowdata
-          name: Flutter ${{ github.event.inputs.flutter_version }} Compressed Bundle
-          files: flutter_sdk_${{ github.event.inputs.flutter_version }}.7z
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          files: flutter-windows-sdk.7z
+          tag_name: flutter-sdk-v1.0.${{ github.run_number }}
+          name: Flutter Windows SDK (Compressed) v1.0.${{ github.run_number }}
+          body: "Automated build containing the Flutter Windows SDK compressed with 7z -mx=9."
+          draft: false
+          prerelease: false
+          
