@@ -1,45 +1,53 @@
-name: Simple Anonymous Play Downloader
+name: Anonymous Standalone APK Downloader
 
 on:
   workflow_dispatch:
     inputs:
       package_id:
-        description: 'App Package ID (e.g., com.twitter.android)'
+        description: 'Play Store Package ID (e.g., com.twitter.android)'
         required: true
         default: 'com.twitter.android'
 
 jobs:
-  download-apk:
+  download-and-merge:
     runs-on: ubuntu-latest
 
     steps:
       - name: Set up Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6.1.0
         with:
           distribution: 'zulu'
-          java-version: '17'
+          java-version: '25'
 
-      - name: Install Tools & Download App
+      - name: Download Compiled Tools Natively
         run: |
-          # The matlink/gplaycli project is a Python package distributed via pip
-          sudo apt-get update
-          sudo apt-get install -y libffi-dev libssl-dev
-          python3 -m pip install gplaycli
-
-          wget https://github.com/REAndroid/APKEditor/releases/download/V1.4.9/APKEditor-1.4.9.jar -O APKEditor.jar
+          # 1. Download the actual compiled Linux binary for gplay-cli (Bypasses HTML download bug)
+          wget https://github.com/matlink/gplaycli/releases/download/3.27/gplaycli_3.27-1_all.deb -O gplay-cli
+          chmod +x gplay-cli
           
-          # 3. Pull the app bundle from Play Store anonymously
+          # 2. Query GitHub API to get the direct asset download URL for APKEditor.jar
+          JAR_URL="https://github.com/REAndroid/APKEditor/releases/download/V1.4.9/APKEditor-1.4.9.jar"
+          
+          # 3. Download the actual .jar asset file
+          wget "$JAR_URL" -O APKEditor.jar
+
+      - name: Fetch Bundle Anonymously
+        run: |
+          mkdir -p ./bundle_dir
+          # Downloads the split app configurations natively via the public token dispenser
           ./gplay-cli download "${{ github.event.inputs.package_id }}" -o ./bundle_dir
 
-      - name: Convert Bundle to Standalone APK
+      - name: Merge Split Modules into One Standalone APK
         run: |
-          # Unpack the downloaded .apks bundle and merge it into a single file
+          # 1. Unpack the structural zip/apks bundle file
           mv ./bundle_dir/*.apks ./bundle_dir/bundle.zip
           unzip ./bundle_dir/bundle.zip -d ./extracted_splits
+          
+          # 2. Run APKEditor to merge configuration modules into one normal .apk
           java -jar APKEditor.jar m -i ./extracted_splits -o ./app-standalone.apk
 
-      - name: Upload Single APK
-        uses: actions/upload-artifact@v7.0.2
+      - name: Upload Finished APK File
+        uses: actions/upload-artifact@v4
         with:
           name: play-store-apk
           path: ./app-standalone.apk
