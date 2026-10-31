@@ -22,8 +22,10 @@ jobs:
       - name: Download Compiled Tools Natively
         run: |
           # 1. Download the actual compiled Linux binary for gplay-cli (Bypasses HTML download bug)
-          wget https://github.com/matlink/gplaycli/releases/download/3.27/gplaycli_3.27-1_all.deb -O gplay-cli
-          chmod +x gplay-cli
+          wget https://github.com/matlink/gplaycli/releases/download/3.27/gplaycli_3.27-1_all.deb -O gplaycli.deb
+
+          sudo apt-get update
+          sudo apt-get install -y ./gplaycli.deb
           
           # 2. Query GitHub API to get the direct asset download URL for APKEditor.jar
           JAR_URL="https://github.com/REAndroid/APKEditor/releases/download/V1.4.9/APKEditor-1.4.9.jar"
@@ -35,13 +37,7 @@ jobs:
         run: |
           mkdir -p ./bundle_dir
           # Downloads the split app configurations natively via the public token dispenser
-          ./gplay-cli download "${{ github.event.inputs.package_id }}" -o ./bundle_dir
-
-      - name: Merge Split Modules into One Standalone APK
-        run: |
-          # 1. Unpack the structural zip/apks bundle file
-          mv ./bundle_dir/*.apks ./bundle_dir/bundle.zip
-          unzip ./bundle_dir/bundle.zip -d ./extracted_splits
+          gplaycli --download "${{ github.event.inputs.package_id }}" --folder ./bundle_dir --append-version
           
           # 2. Run APKEditor to merge configuration modules into one normal .apk
           java -jar APKEditor.jar m -i ./extracted_splits -o ./app-standalone.apk
