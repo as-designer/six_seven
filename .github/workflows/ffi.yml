@@ -21,12 +21,16 @@ jobs:
 
       - name: Install Tools & Download App
         run: |
-          # 1. Download gplay-cli (Zero-login downloader)
-          wget https://github.com/matlink/gplaycli -O gplay-cli
-          chmod +x gplay-cli
+          # The matlink/gplaycli project is a Python package distributed via pip
+          sudo apt-get update
+          sudo apt-get install -y libffi-dev libssl-dev
+          python3 -m pip install gplaycli
+
+          # Fetch the direct URL of the latest compiled release .jar from GitHub
+          JAR_URL=$(curl -s https://github.com/REAndroid/APKEditor | grep "browser_download_url.*\.jar" | cut -d '"' -f 4)
           
-          # 2. Download APKEditor (Merges split bundles into a single file)
-          wget https://github.com/REAndroid/APKEditor -O APKEditor.jar
+          # Download the actual file asset instead of the HTML page
+          wget "$JAR_URL" -O APKEditor.jar
           
           # 3. Pull the app bundle from Play Store anonymously
           ./gplay-cli download "${{ github.event.inputs.package_id }}" -o ./bundle_dir
