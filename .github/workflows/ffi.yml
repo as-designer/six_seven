@@ -26,11 +26,7 @@ jobs:
           sudo apt-get install -y libffi-dev libssl-dev
           python3 -m pip install gplaycli
 
-          # Fetch the direct URL of the latest compiled release .jar from GitHub
-          JAR_URL=$(curl -s https://github.com/REAndroid/APKEditor | grep "browser_download_url.*\.jar" | cut -d '"' -f 4)
-          
-          # Download the actual file asset instead of the HTML page
-          wget "$JAR_URL" -O APKEditor.jar
+          wget https://github.com/REAndroid/APKEditor/releases/download/V1.4.9/APKEditor-1.4.9.jar -O APKEditor.jar
           
           # 3. Pull the app bundle from Play Store anonymously
           ./gplay-cli download "${{ github.event.inputs.package_id }}" -o ./bundle_dir
