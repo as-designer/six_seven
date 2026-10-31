@@ -1,0 +1,46 @@
+name: Simple Anonymous Play Downloader
+
+on:
+  workflow_dispatch:
+    inputs:
+      package_id:
+        description: 'App Package ID (e.g., com.twitter.android)'
+        required: true
+        default: 'com.twitter.android'
+
+jobs:
+  download-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Install Tools & Download App
+        run: |
+          # 1. Download gplay-cli (Zero-login downloader)
+          wget https://github.com/matlink/gplaycli -O gplay-cli
+          chmod +x gplay-cli
+          
+          # 2. Download APKEditor (Merges split bundles into a single file)
+          wget https://github.com/REAndroid/APKEditor -O APKEditor.jar
+          
+          # 3. Pull the app bundle from Play Store anonymously
+          ./gplay-cli download "${{ github.event.inputs.package_id }}" -o ./bundle_dir
+
+      - name: Convert Bundle to Standalone APK
+        run: |
+          # Unpack the downloaded .apks bundle and merge it into a single file
+          mv ./bundle_dir/*.apks ./bundle_dir/bundle.zip
+          unzip ./bundle_dir/bundle.zip -d ./extracted_splits
+          java -jar APKEditor.jar m -i ./extracted_splits -o ./app-standalone.apk
+
+      - name: Upload Single APK
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: play-store-apk
+          path: ./app-standalone.apk
+          retention-days: 1
