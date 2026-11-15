@@ -1,0 +1,40 @@
+name: Download MP4 and Compress to 7z
+
+on:
+  workflow_dispatch:
+
+jobs:
+  archive-video:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install p7zip
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full
+
+      - name: Download MP4 file
+        run: |
+          curl -L --fail \
+            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
+            -o video.mp4 \
+            "https://dave15.savenow.to/api/v2/download/fad92688b64d55f4ca2c04eaf4825e6f7d8d07c43129c5db"
+
+      - name: Verify Download
+        run: |
+          ls -lh video.mp4
+          file video.mp4
+
+      - name: Compress to 7z
+        run: |
+          7z a -t7z -mx=5 video.7z video.mp4
+          ls -lh video.7z
+
+      - name: Upload 7z Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: video-archive-7z
+          path: video.7z
+          compression-level: 0
+          retention-days: 7
+          
